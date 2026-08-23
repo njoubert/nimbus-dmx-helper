@@ -28,7 +28,7 @@ cd "$(dirname "$0")"
 NAME=NimbusDMXHelper          # executable / target / process name
 APP_NAME="Nimbus DMX Helper"  # what the user sees: the .app, the disk image volume
 BUNDLE_ID=com.njoubert.nimbusdmxhelper
-VERSION=1.0
+VERSION=1.1
 INSTALL_DIR=/Applications
 INSTALLED="$INSTALL_DIR/$APP_NAME.app"
 REL_APP="dist/$APP_NAME.app"
