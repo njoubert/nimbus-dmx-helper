@@ -20,8 +20,6 @@ jobs:
         run: swift build
       - name: Build release
         run: swift build -c release
-      - name: Shellcheck
-        run: shellcheck build.sh
       # dmxcli is a real command-line tool (no window, no hardware needed for these).
       - name: CLI smoke test
         run: |
@@ -64,3 +62,12 @@ jobs:
             --prefix "${{ steps.declared.outputs.prefix }}" \
             --expect-bundle-id "${{ steps.declared.outputs.bundle_id }}" \
             --expect-team "${{ steps.declared.outputs.team }}"
+
+  # shellcheck ships on the Ubuntu runners and not on the macOS ones, and linting a shell
+  # script needs no Mac.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shellcheck
+        run: shellcheck build.sh
