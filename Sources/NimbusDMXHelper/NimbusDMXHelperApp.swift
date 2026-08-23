@@ -8,6 +8,7 @@ import DMXCore
 struct NimbusDMXHelperApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @ObservedObject private var dmx = DMXController.shared
+    @ObservedObject private var updates = UpdateModel.shared
 
     var body: some Scene {
         WindowGroup("Nimbus DMX Helper") {
@@ -15,6 +16,24 @@ struct NimbusDMXHelperApp: App {
                 .environmentObject(dmx)
         }
         .defaultSize(width: 1320, height: 720)
+        // Updates live in the app menu, where macOS users look for them, just under About.
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Divider()
+                if let release = updates.ready, updates.canInstall {
+                    Button("Install Update \(release.version) and Relaunch") { updates.install() }
+                } else if let release = updates.available {
+                    Button("Update \(release.version) Available…") { updates.openReleasePage() }
+                }
+                Button("Check for Updates…") { updates.checkNow() }
+                    .disabled(!updates.isAvailable || updates.checking)
+                if updates.canInstall {
+                    Toggle("Check for Updates Automatically", isOn: Binding(
+                        get: { updates.automaticChecks },
+                        set: { updates.automaticChecks = $0 }))
+                }
+            }
+        }
     }
 }
 
@@ -37,6 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if args.contains("--high-speed") { DMXController.shared.highSpeed = true }
         if args.contains("--connect") { DMXController.shared.connect() }
         if args.contains("--monitor") { DMXController.shared.monitoring = true }
+        // Check GitHub for a newer release: once now (a session can be shorter than a day),
+        // then daily if this window stays open. Does nothing for a bare binary or a
+        // --screenshot run, and never installs anything without a click.
+        UpdateModel.shared.start()
         if let i = args.firstIndex(of: "--screenshot"), i + 1 < args.count {
             let path = args[i + 1]
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in

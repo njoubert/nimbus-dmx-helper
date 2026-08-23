@@ -33,6 +33,7 @@ INSTALL_DIR=/Applications
 INSTALLED="$INSTALL_DIR/$APP_NAME.app"
 REL_APP="dist/$APP_NAME.app"
 DMG="dist/$NAME-$VERSION.dmg"
+ZIP="dist/$NAME-$VERSION.zip"     # what the auto-updater downloads; a release needs both
 
 # Developer ID signing / notarization, off unless configured (see the header).
 SIGN_IDENTITY="${SIGN_IDENTITY:-}"
@@ -75,7 +76,7 @@ make_bundle() {
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$(git rev-list --count HEAD 2>/dev/null || echo 1)</string>
-  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>LSMinimumSystemVersion</key><string>15.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
 </dict></plist>
@@ -127,6 +128,17 @@ stop_all() {
     if pgrep -x "$NAME" >/dev/null; then warn "still running, killing"; pkill -9 -x "$NAME" || true; sleep 0.3; fi
     say "stopped $APP_NAME"
   fi
+}
+
+# The auto-updater's asset: the stapled app, zipped with ditto (which keeps symlinks and
+# extended attributes, so the signature and the notarization ticket survive). Must run after
+# notarize_app, or the download is the pre-staple copy.
+#   make_zip <out.zip>
+make_zip() {
+  local out=$1
+  rm -f "$out"
+  ditto -c -k --keepParent "$REL_APP" "$out"
+  note "packed $out ($(du -h "$out" | cut -f1))"
 }
 
 # Wrap the app in the usual drag-to-Applications disk image: the app, an Applications alias,
@@ -238,9 +250,45 @@ case "$cmd" in
   dmg)
     make_bundle
     [ -n "$SIGN_IDENTITY" ] && notarize_app
+    make_zip "$ZIP"
     make_dmg "$DMG"
     say "built $DMG"
     note "Test it: open $DMG"
+    ;;
+
+  # Everything a release needs: both artefacts, the tag, the publish. Refuses a dirty tree or
+  # a commit that is not the version's tag.
+  release)
+    notes=${1:-}
+    if [ -z "$notes" ] || [ ! -f "$notes" ]; then
+      warn "usage: ./build.sh release NOTES.md   (the GitHub release body)"
+      exit 2
+    fi
+    if [ -n "$(git status --porcelain)" ]; then
+      warn "working tree is dirty; commit first"
+      exit 1
+    fi
+    tag="v$VERSION"
+    if git rev-parse "$tag" >/dev/null 2>&1; then
+      if [ "$(git rev-parse "$tag^{commit}")" != "$(git rev-parse HEAD)" ]; then
+        warn "$tag exists but is not HEAD"
+        exit 1
+      fi
+    else
+      git tag -a "$tag" -m "$APP_NAME $VERSION"
+      note "tagged $tag"
+    fi
+    "$0" dmg
+    git push origin main
+    git push origin "$tag"
+    if command -v gh >/dev/null 2>&1; then
+      gh release create "$tag" "$DMG" "$ZIP" --title "$APP_NAME $VERSION" --notes-file "$notes"
+      say "published $tag"
+    else
+      warn "gh is not installed; publish by hand:"
+      note "gh release create $tag $DMG $ZIP --title \"$APP_NAME $VERSION\" --notes-file $notes"
+    fi
+    note "the updater needs $(basename "$ZIP") on the release — a DMG-only release is invisible to it"
     ;;
 
   install)
@@ -257,6 +305,8 @@ case "$cmd" in
     ;;
 
   uninstall)
+    rm -rf "$HOME/Library/Caches/$BUNDLE_ID"
+    rm -rf "$INSTALL_DIR/.$NAME-old.app" "$INSTALL_DIR/.$NAME-update.app"
     stop_all
     if [ -e "$INSTALLED" ]; then
       rm -rf "$INSTALLED"

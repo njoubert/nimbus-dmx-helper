@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import Foundation
 import DMXCore
+import NimbusUpdater
 
 // dmxcli — tiny scripting/smoke-test tool for the Enttec DMX USB Pro.
 //
@@ -150,6 +151,41 @@ case "loopback":
 
 case "version":
     print(AppVersion.full)
+
+case "check-update":
+    // What the app's updater sees: the feed, the parse, the comparison. Installing needs the
+    // real bundle in /Applications, so it is not offered here.
+    guard let current = Updates.runningVersion ?? Updates.installedVersion else {
+        FileHandle.standardError.write(Data("no version to compare against: \(Updates.appName) is not installed\n".utf8))
+        exit(1)
+    }
+    let updateConfig = Updates.config(currentVersion: current)
+    print("current: \(current)  (\(Updates.runningVersion != nil ? "this bundle" : "the installed copy"))")
+    let updateSemaphore = DispatchSemaphore(value: 0)
+    nonisolated(unsafe) var updateOutcome: Result<Release?, Error>?
+    Task {
+        do { updateOutcome = .success(try await Release.fetchLatest(updateConfig)) }
+        catch { updateOutcome = .failure(error) }
+        updateSemaphore.signal()
+    }
+    updateSemaphore.wait()
+    do {
+        guard let release = try updateOutcome!.get() else {
+            print("latest:  none the updater can read"); exit(0)
+        }
+        print("latest:  \(release.version)  [\(release.tag)]")
+        if let asset = release.asset {
+            print("asset:   \(asset.name)  (\(asset.size) bytes)")
+        } else {
+            print("asset:   none named \(updateConfig.assetPrefix)\(release.version.text).zip — invisible to the updater")
+        }
+        print(release.version > current
+            ? (release.asset != nil ? "→ an update is available" : "→ newer, but nothing installable is published")
+            : "→ up to date")
+    } catch {
+        FileHandle.standardError.write(Data("error: \(error)\n".utf8))
+        exit(1)
+    }
 
 case "dmg-background":
     // Render the disk image's background (1× and 2× PNGs) into a directory; build.sh packs

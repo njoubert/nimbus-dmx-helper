@@ -165,9 +165,31 @@ in the meantime.
   restores the widget's refresh rate if high-speed mode changed it. If a Connect ever does
   hang, wait a few seconds or unplug/replug the widget.
 
+## Updates
+
+The app keeps itself up to date, through
+[nimbus-updater](https://github.com/njoubert/nimbus-updater) (MIT, ours, shared with
+[Nimbus Leviton Bar](https://github.com/njoubert/nimbus-leviton-bar) and
+[Nimbus Net Bar](https://github.com/njoubert/nimbus-net-bar); an ordinary SwiftPM dependency
+pinned in `Package.resolved`).
+
+Because this app is opened and quit rather than left running, **it checks a few seconds after
+every launch** — and once a day after that, if you leave the window open. When it finds a
+newer release it downloads it in the background and offers **Install Update … and Relaunch**,
+both in the **Nimbus DMX Helper** menu and as a button beside the version in the connection
+bar. A download is installed only if macOS confirms it is signed with the same Developer ID as
+the copy you are running, and nothing installs without your click. **Check for Updates…** in
+the app menu asks immediately; **Check for Updates Automatically** turns the whole thing off,
+and with it off the app never contacts GitHub. `dmxcli check-update` prints what the updater
+sees.
+
+Only a copy installed in `/Applications` can replace itself — a `./build.sh run` build says so
+rather than pretending.
+
 ## Requirements
 
-macOS 14+, Swift 5.10+ toolchain (Command Line Tools are enough — no Xcode project needed).
+macOS 15+, Swift 5.10+ toolchain (Command Line Tools are enough — no Xcode project needed).
+One dependency, ours: [nimbus-updater](https://github.com/njoubert/nimbus-updater).
 
 ## Installing a release
 

@@ -5,6 +5,7 @@ import DMXCore
 
 struct ContentView: View {
     @EnvironmentObject var dmx: DMXController
+    @ObservedObject private var updates = UpdateModel.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -76,6 +77,12 @@ struct ContentView: View {
                 Text(String(format: "%.0f fps · %d ch/frame · %d frames", dmx.debug.measuredFPS, dmx.debug.frameChannels, dmx.framesSent))
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.secondary)
+            }
+            // An update, once it is downloaded and checked, right where the version already is.
+            if let release = updates.ready, updates.canInstall {
+                Button("Update \(release.version) ready — install") { updates.install() }
+                    .controlSize(.small)
+                    .help("Downloaded and checked against this app's Developer ID. Installing takes a couple of seconds and reopens the app.")
             }
             Text(AppVersion.versionString)
                 .font(.caption2)

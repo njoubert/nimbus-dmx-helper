@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A macOS app for driving DMX lights through an **Enttec DMX USB Pro**: a SwiftUI app
 (**Nimbus DMX Helper**, target/executable `NimbusDMXHelper`), a scripting CLI (`dmxcli`),
-and a shared library (`DMXCore`). Pure SwiftPM, no Xcode project,
-Command Line Tools are enough (macOS 14+, Swift 5.10+, Swift 5 language mode).
+and a shared library (`DMXCore`). Pure SwiftPM, no Xcode project, Command Line Tools are
+enough (macOS 15+, Swift 5.10+, Swift 5 language mode). Exactly one dependency —
+`NimbusUpdater` (https://github.com/njoubert/nimbus-updater, MIT, ours).
 
 Hardware on this machine (not derivable from code): the widget enumerates as
 `/dev/cu.usbserial-EN538648` (FTDI 0403:6001, Apple's built-in FTDI driver, FW 1.44); the light is an
@@ -116,9 +117,38 @@ then `sips -Z 1400 docs/screenshot.png`.
 **`Sources/dmxcli/main.swift`** — flat command switch over the same DMXCore APIs; every command
 opens the port itself. Add new experiments here first; they're cheap and don't need the GUI.
 
+## Auto-update (NimbusUpdater)
+
+The app checks this repo's releases and can replace itself. **`../nimbus-updater/CLAUDE.md`
+holds the updater's traps — read it before touching anything about updates.**
+
+- **How it is wired in: an ordinary SwiftPM package dependency, by URL.** `Package.swift` has
+  `.package(url: "https://github.com/njoubert/nimbus-updater.git", from: "1.2.0")`; `DMXCore`
+  and `dmxcli` take the product. **Not a git submodule, and not a path dependency** — the
+  sibling checkout is only where the source is edited. `Package.resolved` (committed) pins the
+  version, so a new upstream tag arrives only via `swift package update` plus a commit.
+- **This app is opened and quit, so the launch check is the one that matters.** `Updates.swift`
+  (in DMXCore, so `dmxcli check-update` shares it) sets `checkOnLaunch: true` and a 5 s
+  `launchDelay`; the daily `checkInterval` only comes into play if the window is left open.
+  The menu bar apps rely on the same default.
+- **The surface is SwiftUI, not a menu**: `UpdateModel` (an `ObservableObject` wrapper around
+  `Updater`) drives a `CommandGroup(after: .appInfo)` in `NimbusDMXHelperApp` and a button
+  beside the version in `ContentView`'s connection bar. The menu bar apps' `addUpdateItems` is
+  the AppKit equivalent — same states, same wording, so fix wording in all three.
+- `UpdateModel` is inert for a bare SwiftPM binary (no bundle → no version) and for
+  `--screenshot` runs, so `./build.sh run` never checks and screenshots never show an update.
+- **A release is invisible to the updater unless it carries `NimbusDMXHelper-<version>.zip`,**
+  built by `build.sh dmg` from the *stapled* app. `./build.sh release NOTES.md` does the whole
+  dance and cannot forget it.
+- Testing without publishing: `defaults write com.njoubert.nimbusdmxhelper updateFeedURL
+  file:///tmp/latest.json` (a JSON in the API's shape whose asset URL is a local `file://`
+  zip), then `defaults delete` it. **An empty update cache is not proof of a refusal** — force
+  a check from the menu.
+
 ## Release and distribution
 
-The deliverable is the disk image. A release is:
+The deliverable is the disk image *and the zip beside it*; `./build.sh release NOTES.md` is the
+way in. A release is:
 
 1. **Version.** `VERSION=` near the top of `build.sh` is the marketing version
    (`CFBundleShortVersionString`, the DMG's file name). `CFBundleVersion` is
