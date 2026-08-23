@@ -279,6 +279,10 @@ case "$cmd" in
       note "tagged $tag"
     fi
     "$0" dmg
+    # The requirements auto-update depends on, checked while it can still be undone: identity,
+    # signature, version, and whether the copies people already have would accept this build.
+    swift build --product dmxcli >/dev/null
+    .build/debug/dmxcli preflight "$REL_APP"
     git push origin main
     git push origin "$tag"
     if command -v gh >/dev/null 2>&1; then

@@ -38,7 +38,7 @@ func die(_ msg: String) -> Never { FileHandle.standardError.write((msg + "\n").d
 
 var args = Array(CommandLine.arguments.dropFirst())
 guard let cmd = args.first else {
-    print("usage: dmxcli list|info|set|halo|black|monitor|icon|dmg-background|version [--port PATH] [--hold SEC] ...")
+    print("usage: dmxcli list|info|set|halo|black|monitor|icon|dmg-background|version|check-update|preflight [--port PATH] [--hold SEC] ...")
     exit(2)
 }
 args.removeFirst()
@@ -151,6 +151,41 @@ case "loopback":
 
 case "version":
     print(AppVersion.full)
+
+case "preflight":
+    // What must stay true for auto-update to keep working, checked against a built bundle.
+    // `build.sh release` runs this before it pushes anything. The version comes from the bundle
+    // being checked — this is about *that* build, not what is installed or running.
+    guard let preflightPath = args.first else {
+        FileHandle.standardError.write(Data("usage: dmxcli preflight \"dist/Nimbus DMX Helper.app\"\n".utf8))
+        exit(2)
+    }
+    let preflightPlist = URL(fileURLWithPath: preflightPath).appendingPathComponent("Contents/Info.plist")
+    let preflightInfo = (try? Data(contentsOf: preflightPlist)).flatMap {
+        try? PropertyListSerialization.propertyList(from: $0, format: nil) as? [String: Any]
+    } ?? nil
+    guard let preflightShort = preflightInfo?["CFBundleShortVersionString"] as? String,
+          let preflightVersion = SemanticVersion(preflightShort) else {
+        FileHandle.standardError.write(Data("\(preflightPath) has no readable CFBundleShortVersionString\n".utf8))
+        exit(1)
+    }
+    let preflightSemaphore = DispatchSemaphore(value: 0)
+    nonisolated(unsafe) var preflightReport: Preflight.Report?
+    Task {
+        preflightReport = await Preflight.run(app: URL(fileURLWithPath: preflightPath),
+                                              config: Updates.config(currentVersion: preflightVersion),
+                                              releaseVersion: preflightVersion)
+        preflightSemaphore.signal()
+    }
+    preflightSemaphore.wait()
+    for check in preflightReport!.checks {
+        print("\(check.ok ? "ok  " : "FAIL") \(check.name): \(check.detail)")
+    }
+    if !(preflightReport!.passed) {
+        FileHandle.standardError.write(Data("\nthis build would break auto-update for people who already have the app\n".utf8))
+        exit(1)
+    }
+    print("\npreflight passed")
 
 case "check-update":
     // What the app's updater sees: the feed, the parse, the comparison. Installing needs the
