@@ -60,38 +60,14 @@ final class UpdateModel: ObservableObject {
     func openReleasePage() { updater?.openReleasePage() }
 
     /// The menu's "Check for Updates…": always goes to the network, always says what happened.
+    /// The alert is the package's, shared with the other Nimbus apps.
     func checkNow() {
         guard let updater, !checking else { return }
         checking = true
         Task { @MainActor in
             let outcome = await updater.checkNow()
             checking = false
-            let alert = NSAlert()
-            switch outcome {
-            case .ready(let release):
-                alert.messageText = "Update \(release.version) is ready"
-                alert.informativeText = "Choose \u{201C}Install Update \(release.version) and Relaunch\u{201D} in the \(Updates.appName) menu."
-            case .available(let release):
-                alert.messageText = "Version \(release.version) is available"
-                alert.informativeText = updater.canInstall
-                    ? "That release has no installable download — open its page to get it."
-                    : "Updates install only into /Applications, and this copy runs from \(Bundle.main.bundlePath)."
-                alert.addButton(withTitle: "OK")
-                alert.addButton(withTitle: "Open Release Page")
-                NSApp.activate(ignoringOtherApps: true)
-                if alert.runModal() == .alertSecondButtonReturn { updater.openReleasePage() }
-                return
-            case .failed(let message, _):
-                alert.messageText = "Could not check for updates"
-                alert.informativeText = message
-                alert.alertStyle = .warning
-            default:
-                alert.messageText = "You\u{2019}re up to date"
-                alert.informativeText = "\(AppVersion.full) is the newest release."
-            }
-            alert.addButton(withTitle: "OK")
-            NSApp.activate(ignoringOtherApps: true)
-            alert.runModal()
+            updater.presentCheckResult(outcome)
         }
     }
 }

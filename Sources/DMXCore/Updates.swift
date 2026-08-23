@@ -24,7 +24,11 @@ public enum Updates {
                       executableName: executableName, currentVersion: currentVersion,
                       // A session can easily be shorter than a day, so the launch check does
                       // the work; the interval only matters if the app is left open.
-                      checkInterval: 24 * 3600, checkOnLaunch: true, launchDelay: 5)
+                      checkInterval: 24 * 3600, checkOnLaunch: true, launchDelay: 5,
+                      // A session can be short, so the launch check may be the only one that
+                      // ever runs here — worth saying out loud rather than leaving it in a
+                      // menu the user may never open. Once per version.
+                      announcesReadyUpdates: true)
     }
 
     /// The running bundle's version — nil for a bare SwiftPM binary (no Info.plist).
