@@ -29,6 +29,7 @@ The Halo's DMX channel maps are in `docs/amaran-dmx-profile-spec-v1.1.pdf` and s
 ./build.sh uninstall      # quit and remove /Applications/Nimbus DMX Helper.app
 ./build.sh status         # running? installed? how is it signed?
 ./build.sh icon           # re-render docs/icon.png
+./build.sh social         # re-render docs/social-preview.png (GitHub's link-preview card)
 ./build.sh clean          # rm -rf .build dist
 swift build --product dmxcli        # rebuild just the CLI
 dmxcli version                      # what build is this ("dev build" outside an .app)
@@ -158,6 +159,8 @@ way in. A release is:
    shows both in the connection bar and `dmxcli version` prints them (`AppVersion` in DMXCore).
 2. **Docs.** `./build.sh icon` refreshes `docs/icon.png`; regenerate the screenshot with
    `./build.sh run --connect --demo --screenshot docs/screenshot.png` then `sips -Z 1400`.
+   Either of those changes the link-preview card too, so `./build.sh social` and re-upload it
+   (see the trap below).
 3. **Build.** `./build.sh dmg` → signs, notarizes the app *and* the image, staples both.
    Notarization waits on Apple (minutes, occasionally longer); on failure read the reason with
    `xcrun notarytool log <submission id> --keychain-profile "$NOTARY_PROFILE"`. Then `open` the
@@ -238,6 +241,16 @@ button labels — matching `"Don't"` against a curly `Don’t` silently fails.
 
 ## Traps already found (don't re-learn these)
 
+- **A README hero image is not the link preview.** What chat apps, Slack and Twitter show for
+  a GitHub URL is `og:image`, and that is either a picture uploaded under the repo's
+  Settings › General › Social preview or, failing that, a grey card of the repo name and the
+  contributor count. GitHub never reads the README for it. **There is no API for the upload** —
+  not REST, not GraphQL, not `gh` — so `./build.sh social` only draws the file; putting it on
+  the repo is a manual drag onto that settings page, once per repo, and again whenever the
+  icon or the screenshot changes. Apple's LinkPresentation sometimes scrapes a README image
+  when the `og:image` fetch fails, which makes a repo *look* like it has a preview it hasn't
+  got — check `curl -sL <repo> | grep og:image` instead: an `opengraph.githubassets.com` URL
+  means the generated card, `repository-images.githubusercontent.com` means a real one.
 - **Shadow offset and blur are in base space.** `CGContext.setShadow` ignores the CTM, so a
   blur sized for the 1024-pt reference canvas is that many *device pixels* at every render
   size — at the 128-pt icon the body shadow ran off the bottom edge and was clipped to a hard

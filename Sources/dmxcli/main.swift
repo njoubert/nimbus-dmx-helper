@@ -38,7 +38,7 @@ func die(_ msg: String) -> Never { FileHandle.standardError.write((msg + "\n").d
 
 var args = Array(CommandLine.arguments.dropFirst())
 guard let cmd = args.first else {
-    print("usage: dmxcli list|info|set|halo|black|monitor|icon|dmg-background|version|check-update|preflight [--port PATH] [--hold SEC] ...")
+    print("usage: dmxcli list|info|set|halo|black|monitor|icon|social|dmg-background|version|check-update|preflight [--port PATH] [--hold SEC] ...")
     exit(2)
 }
 args.removeFirst()
@@ -241,6 +241,13 @@ case "icon":
         try d.write(to: URL(fileURLWithPath: path))
         print("wrote \(path) (\(px)×\(px))")
     }
+
+case "social":
+    // Render the GitHub social preview card (1280×640) out of docs/icon.png and
+    // docs/screenshot.png. Uploaded by hand: GitHub has no API for the setting.
+    let path = takeOption("--png") ?? "docs/social-preview.png"
+    try SocialCard.write(to: path, icon: "docs/icon.png", screenshot: "docs/screenshot.png")
+    print("wrote \(path) (\(Int(SocialCard.width))×\(Int(SocialCard.height)))")
 
 case "params":
     let rate = UInt8(takeOption("--rate") ?? "40") ?? 40

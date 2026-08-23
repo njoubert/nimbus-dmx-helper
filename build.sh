@@ -12,6 +12,9 @@
 #   ./build.sh uninstall    quit and delete /Applications/Nimbus DMX Helper.app
 #   ./build.sh status       running? installed? how is it signed?
 #   ./build.sh icon         re-render docs/icon.png from Sources/DMXCore/AppIcon.swift
+#   ./build.sh social       re-render docs/social-preview.png from Sources/DMXCore/SocialCard.swift
+#                           — GitHub's link-preview card. Upload it by hand under the repo's
+#                           Settings › General › Social preview; GitHub has no API for it.
 #   ./build.sh clean        remove build products
 #
 # Signing: release bundles (app / dmg / install) are ad-hoc signed unless a Developer ID is
@@ -340,6 +343,11 @@ case "$cmd" in
   icon)
     swift build --product dmxcli >/dev/null
     .build/debug/dmxcli icon --png docs/icon.png --size 512
+    ;;
+
+  social)
+    swift build --product dmxcli >/dev/null
+    .build/debug/dmxcli social --png docs/social-preview.png
     ;;
 
   clean)
