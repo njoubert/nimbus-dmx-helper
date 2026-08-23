@@ -175,7 +175,9 @@ way in. A release is:
    ```
    Don't commit `dist/`.
 
-**Signing** is configured in a git-ignored `.signing` file (`SIGN_IDENTITY`, `NOTARY_PROFILE`
+**Signing** — the private key lives in this machine's login keychain and as a `.p12` export
+kept off it; those are the only two copies and Apple will not re-issue it. Configured in a
+git-ignored `.signing` file (`SIGN_IDENTITY`, `NOTARY_PROFILE`
 — the notary credentials are per Apple ID + team, not per app, so one profile serves every
 project; don't name it after this one);
 unset, everything falls back to ad-hoc and the DMG background grows an "unsigned build" footer
